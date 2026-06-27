@@ -2,23 +2,27 @@ using UnityEngine;
 
 [RequireComponent(typeof(NpcNeeds))]
 [RequireComponent(typeof(NpcMemory))]
+[RequireComponent(typeof(NpcMovement))]
+[RequireComponent(typeof(NpcAreaKnowledge))]
 public class NpcBrain : MonoBehaviour
 {
     [Header("Brain")]
-    public NpcActionType currentAction = NpcActionType.Idle;
+    public NpcActionType currentActionType = NpcActionType.Idle;
 
     [Header("Decision Timing")]
-    public float decisionInterval = 1f;
+    public float decisionInterval = 0.75f;
+
+    [Header("Debug")]
+    public bool debugLogs = true;
 
     private float decisionTimer;
 
-    private NpcNeeds needs;
-    private NpcMemory memory;
+    private NpcAction[] actions;
+    private NpcAction currentAction;
 
     private void Awake()
     {
-        needs = GetComponent<NpcNeeds>();
-        memory = GetComponent<NpcMemory>();
+        actions = GetComponents<NpcAction>();
     }
 
     private void Update()
@@ -28,92 +32,45 @@ public class NpcBrain : MonoBehaviour
         if (decisionTimer <= 0f)
         {
             decisionTimer = decisionInterval;
-            DecideNextAction();
+            ChooseBestAction();
         }
+
+        currentAction?.Tick();
     }
 
-    private void DecideNextAction()
+    private void ChooseBestAction()
     {
-        NpcActionType bestAction = NpcActionType.Idle;
+        NpcAction bestAction = null;
         float bestScore = 0f;
 
-        ScoreAction(NpcActionType.Explore, GetExploreScore(), ref bestAction, ref bestScore);
-        ScoreAction(NpcActionType.FindWater, GetFindWaterScore(), ref bestAction, ref bestScore);
-        ScoreAction(NpcActionType.Drink, GetDrinkScore(), ref bestAction, ref bestScore);
-        ScoreAction(NpcActionType.FindFood, GetFindFoodScore(), ref bestAction, ref bestScore);
-        ScoreAction(NpcActionType.Eat, GetEatScore(), ref bestAction, ref bestScore);
-        ScoreAction(NpcActionType.Sleep, GetSleepScore(), ref bestAction, ref bestScore);
-
-        if (currentAction != bestAction)
+        foreach (NpcAction action in actions)
         {
-            currentAction = bestAction;
-            Debug.Log($"{name} decided to: {currentAction}");
+            if (!action.CanRun())
+                continue;
+
+            float score = action.GetScore();
+
+            if (score > bestScore)
+            {
+                bestScore = score;
+                bestAction = action;
+            }
         }
-    }
 
-    private void ScoreAction(
-        NpcActionType action,
-        float score,
-        ref NpcActionType bestAction,
-        ref float bestScore
-    )
-    {
-        if (score > bestScore)
-        {
-            bestScore = score;
-            bestAction = action;
-        }
-    }
+        if (bestAction == null)
+            return;
 
-    private float GetExploreScore()
-    {
-        return 10f;
-    }
+        if (currentAction == bestAction)
+            return;
 
-    private float GetFindWaterScore()
-    {
-        if (needs.thirst > 60f)
-            return 0f;
+        currentAction?.End();
 
-        if (memory.Knows(MemoryType.Lake))
-            return 0f;
+        currentAction = bestAction;
+        currentActionType = bestAction.ActionType;
 
-        return 100f - needs.thirst;
-    }
+        currentAction.Begin();
 
-    private float GetDrinkScore()
-    {
-        if (needs.thirst > 70f)
-            return 0f;
-
-        if (!memory.Knows(MemoryType.Lake))
-            return 0f;
-
-        return 100f - needs.thirst + 30f;
-    }
-
-    private float GetFindFoodScore()
-    {
-        if (needs.hunger > 60f)
-            return 0f;
-
-        return 100f - needs.hunger;
-    }
-
-    private float GetEatScore()
-    {
-        if (needs.hunger > 70f)
-            return 0f;
-
-        // Later this will check inventory.
-        return 0f;
-    }
-
-    private float GetSleepScore()
-    {
-        if (needs.energy > 35f)
-            return 0f;
-
-        return 100f - needs.energy + 20f;
+        if (debugLogs)
+            Debug.Log($"{name} chose action: {currentActionType} | Score: {bestScore}");
     }
 }

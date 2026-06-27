@@ -1,6 +1,7 @@
 using UnityEngine;
 
 [RequireComponent(typeof(NpcMemory))]
+[RequireComponent(typeof(NpcAreaKnowledge))]
 public class NpcVision : MonoBehaviour
 {
     [Header("Vision")]
@@ -12,6 +13,10 @@ public class NpcVision : MonoBehaviour
     public LayerMask detectableLayers;
     public LayerMask visionBlockingLayers;
 
+    [Header("Area Exploration")]
+    public float visibleAreaExploreAmount = 4f;
+    public int explorationRays = 9;
+
     [Header("Scanning")]
     public float scanInterval = 0.25f;
 
@@ -19,11 +24,13 @@ public class NpcVision : MonoBehaviour
     public bool drawDebug = true;
 
     private NpcMemory memory;
+    private NpcAreaKnowledge areaKnowledge;
     private float scanTimer;
 
     private void Awake()
     {
         memory = GetComponent<NpcMemory>();
+        areaKnowledge = GetComponent<NpcAreaKnowledge>();
     }
 
     private void Update()
@@ -33,7 +40,45 @@ public class NpcVision : MonoBehaviour
         if (scanTimer <= 0f)
         {
             scanTimer = scanInterval;
-            ScanForVisibleObjects();
+            ScanVision();
+        }
+    }
+
+    private void ScanVision()
+    {
+        MarkVisibleAreas();
+        ScanForVisibleObjects();
+    }
+
+    private void MarkVisibleAreas()
+    {
+        Vector3 eyePosition = transform.position + Vector3.up * 1.6f;
+
+        for (int i = 0; i < explorationRays; i++)
+        {
+            float t = explorationRays == 1 ? 0.5f : i / (float)(explorationRays - 1);
+
+            float angle = Mathf.Lerp(
+                -visionAngle * 0.5f,
+                visionAngle * 0.5f,
+                t
+            );
+
+            Vector3 direction = Quaternion.Euler(0f, angle, 0f) * transform.forward;
+            Vector3 visiblePoint = eyePosition + direction * visionDistance;
+
+            if (Physics.Raycast(
+                eyePosition,
+                direction,
+                out RaycastHit hit,
+                visionDistance,
+                visionBlockingLayers
+            ))
+            {
+                visiblePoint = hit.point;
+            }
+
+            areaKnowledge.MarkVisible(visiblePoint, visibleAreaExploreAmount);
         }
     }
 
@@ -55,13 +100,24 @@ public class NpcVision : MonoBehaviour
             if (target == null)
                 continue;
 
+            if (!target.canBeSeen)
+                continue;
+
             if (!IsInsideVisionCone(target.transform))
                 continue;
 
             if (!HasLineOfSight(target.transform))
                 continue;
-if (target.canBeSeen)
-    memory.Remember(target.memoryType, target.transform);
+
+            memory.Remember(target.memoryType, target.transform);
+
+            areaKnowledge.ObserveValue(
+                target.transform.position,
+                target.areaKnowledgeType,
+                target.valueAmount,
+                target.attentionAmount,
+                true
+            );
         }
     }
 

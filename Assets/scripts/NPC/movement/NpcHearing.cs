@@ -1,6 +1,7 @@
 using UnityEngine;
 
 [RequireComponent(typeof(NpcMemory))]
+[RequireComponent(typeof(NpcAreaKnowledge))]
 public class NpcHearing : MonoBehaviour
 {
     [Header("Hearing")]
@@ -14,11 +15,13 @@ public class NpcHearing : MonoBehaviour
     public bool drawDebug = true;
 
     private NpcMemory memory;
+    private NpcAreaKnowledge areaKnowledge;
     private float scanTimer;
 
     private void Awake()
     {
         memory = GetComponent<NpcMemory>();
+        areaKnowledge = GetComponent<NpcAreaKnowledge>();
     }
 
     private void Update()
@@ -54,6 +57,14 @@ public class NpcHearing : MonoBehaviour
                 continue;
 
             memory.Remember(target.memoryType, target.transform);
+
+            areaKnowledge.ObserveValue(
+                target.transform.position,
+                target.areaKnowledgeType,
+                target.valueAmount * 0.5f,
+                target.attentionAmount,
+                false
+            );
         }
     }
 

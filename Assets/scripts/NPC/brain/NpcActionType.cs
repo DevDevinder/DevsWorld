@@ -2,9 +2,11 @@ public enum NpcActionType
 {
     Idle,
     Explore,
-    FindWater,
+    SearchForNeed,
     Drink,
-    FindFood,
     Eat,
-    Sleep
+    Sleep,
+    Hunt,
+    Fish,
+    Socialise
 }
