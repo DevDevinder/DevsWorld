@@ -31,7 +31,6 @@ public class NeedSource : MonoBehaviour
     private void Awake()
     {
         sourceCollider = GetComponent<Collider>();
-        ConfigureMemoryTarget();
     }
 
     private void Update()
@@ -44,19 +43,6 @@ public class NeedSource : MonoBehaviour
 
         if (destroyWhenEmpty && !HasAnyAvailableEffect())
             Destroy(gameObject);
-    }
-
-    private void ConfigureMemoryTarget()
-    {
-        WorldMemoryTarget target = GetComponent<WorldMemoryTarget>();
-
-        NpcNeedType primaryNeed = GetPrimaryNeedType();
-
-        target.memoryType = GetMemoryTypeForNeed(primaryNeed);
-        target.areaKnowledgeType = GetAreaKnowledgeTypeForNeed(primaryNeed);
-        target.canBeSeen = true;
-        target.valueAmount = 45f;
-        target.attentionAmount = 30f;
     }
 
     public bool CanRestore(NpcNeedType needType)
@@ -135,41 +121,5 @@ public class NeedSource : MonoBehaviour
         }
 
         return false;
-    }
-
-    public NpcNeedType GetPrimaryNeedType()
-    {
-        if (effects == null || effects.Length == 0)
-            return NpcNeedType.Hunger;
-
-        return effects[0].needType;
-    }
-
-    private MemoryType GetMemoryTypeForNeed(NpcNeedType needType)
-    {
-        return needType switch
-        {
-            NpcNeedType.Hunger => MemoryType.Food,
-            NpcNeedType.Thirst => MemoryType.Lake,
-            NpcNeedType.Energy => MemoryType.House,
-            NpcNeedType.Warmth => MemoryType.Fire,
-            NpcNeedType.Safety => MemoryType.House,
-            NpcNeedType.Social => MemoryType.NPC,
-            _ => MemoryType.Food
-        };
-    }
-
-    private AreaKnowledgeType GetAreaKnowledgeTypeForNeed(NpcNeedType needType)
-    {
-        return needType switch
-        {
-            NpcNeedType.Hunger => AreaKnowledgeType.Food,
-            NpcNeedType.Thirst => AreaKnowledgeType.Water,
-            NpcNeedType.Energy => AreaKnowledgeType.Shelter,
-            NpcNeedType.Warmth => AreaKnowledgeType.Shelter,
-            NpcNeedType.Safety => AreaKnowledgeType.Shelter,
-            NpcNeedType.Social => AreaKnowledgeType.Social,
-            _ => AreaKnowledgeType.Food
-        };
     }
 }
