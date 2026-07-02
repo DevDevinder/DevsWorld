@@ -8,7 +8,7 @@ public class NeedSourceEffect
     [Header("Restore")]
     public float restorePerSecond = 25f;
 
-    [Header("Source Amount")]
+    [Header("Amount")]
     public bool infinite = false;
     public float availableAmount = 100f;
     public float maxAmount = 100f;
@@ -27,7 +27,6 @@ public class NeedSourceEffect
 
         float consumed = Mathf.Min(availableAmount, requested);
         availableAmount -= consumed;
-
         return consumed;
     }
 

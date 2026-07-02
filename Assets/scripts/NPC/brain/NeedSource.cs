@@ -11,7 +11,7 @@ public class NeedSource : MonoBehaviour
     [Header("Interaction")]
     public bool useClosestColliderPoint = true;
     public Transform customInteractionPoint;
-    public float interactionDistance = 3.5f;
+    public float interactionDistance = 6f;
     public float navMeshSampleRadius = 10f;
 
     [Header("Regrowth")]
@@ -22,7 +22,6 @@ public class NeedSource : MonoBehaviour
     public bool destroyWhenEmpty = false;
 
     [Header("Debug")]
-    public bool debugDraw = true;
     public Vector3 lastInteractionPoint;
     public float lastDistanceToSource;
     public bool lastInRange;
@@ -73,17 +72,15 @@ public class NeedSource : MonoBehaviour
 
     public float Use(NpcNeedType needType, float deltaTime)
     {
-        float totalRestored = 0f;
+        float total = 0f;
 
         foreach (NeedSourceEffect effect in effects)
         {
-            if (effect.needType != needType)
-                continue;
-
-            totalRestored += effect.Consume(deltaTime);
+            if (effect.needType == needType)
+                total += effect.Consume(deltaTime);
         }
 
-        return totalRestored;
+        return total;
     }
 
     public Vector3 GetInteractionPoint(Vector3 npcPosition)
@@ -94,23 +91,23 @@ public class NeedSource : MonoBehaviour
             return customInteractionPoint.position;
         }
 
-        Vector3 closestSourcePoint = GetClosestSourcePoint(npcPosition);
+        Vector3 sourcePoint = GetClosestSourcePoint(npcPosition);
 
-        if (NavMesh.SamplePosition(closestSourcePoint, out NavMeshHit hit, navMeshSampleRadius, NavMesh.AllAreas))
+        if (NavMesh.SamplePosition(sourcePoint, out NavMeshHit hit, navMeshSampleRadius, NavMesh.AllAreas))
         {
             lastInteractionPoint = hit.position;
             return hit.position;
         }
 
-        lastInteractionPoint = closestSourcePoint;
-        return closestSourcePoint;
+        lastInteractionPoint = sourcePoint;
+        return sourcePoint;
     }
 
     public bool IsInRange(Vector3 npcPosition)
     {
-        Vector3 closestSourcePoint = GetClosestSourcePoint(npcPosition);
+        Vector3 closest = GetClosestSourcePoint(npcPosition);
 
-        lastDistanceToSource = Vector3.Distance(npcPosition, closestSourcePoint);
+        lastDistanceToSource = Vector3.Distance(npcPosition, closest);
         lastInRange = lastDistanceToSource <= interactionDistance;
 
         return lastInRange;
@@ -124,10 +121,9 @@ public class NeedSource : MonoBehaviour
         if (sourceCollider == null)
             return transform.position;
 
-        Vector3 closestPoint = sourceCollider.ClosestPoint(npcPosition);
-        closestPoint.y = npcPosition.y;
-
-        return closestPoint;
+        Vector3 closest = sourceCollider.ClosestPoint(npcPosition);
+        closest.y = npcPosition.y;
+        return closest;
     }
 
     public bool HasAnyAvailableEffect()
@@ -175,17 +171,5 @@ public class NeedSource : MonoBehaviour
             NpcNeedType.Social => AreaKnowledgeType.Social,
             _ => AreaKnowledgeType.Food
         };
-    }
-
-    private void OnDrawGizmosSelected()
-    {
-        if (!debugDraw)
-            return;
-
-        Gizmos.color = Color.cyan;
-        Gizmos.DrawWireSphere(lastInteractionPoint, 0.6f);
-
-        Gizmos.color = lastInRange ? Color.green : Color.red;
-        Gizmos.DrawWireSphere(transform.position, interactionDistance);
     }
 }

@@ -13,7 +13,7 @@ public class UseNeedSourceAction : NpcAction
     public float emergencyThreshold = 25f;
 
     [Header("Scoring")]
-    public float baseKnownSourceScore = 180f;
+    public float baseSourceScore = 180f;
     public float emergencyBonus = 160f;
     public float distancePenaltyMultiplier = 0.04f;
 
@@ -57,10 +57,7 @@ public class UseNeedSourceAction : NpcAction
         float urgency = 100f - needValue;
         float distance = Vector3.Distance(transform.position, interactionPoint);
 
-        float score =
-            baseKnownSourceScore +
-            urgency -
-            distance * distancePenaltyMultiplier;
+        float score = baseSourceScore + urgency - distance * distancePenaltyMultiplier;
 
         if (needValue <= emergencyThreshold)
             score += emergencyBonus;
@@ -73,9 +70,7 @@ public class UseNeedSourceAction : NpcAction
         debugRestoredLastTick = 0f;
 
         if (chosenSource == null || !chosenSource.CanRestore(chosenNeed))
-        {
             FindBestUsableSource(out chosenSource, out chosenNeed);
-        }
 
         if (chosenSource == null)
         {
@@ -102,18 +97,18 @@ public class UseNeedSourceAction : NpcAction
         float restored = chosenSource.Use(chosenNeed, Time.deltaTime);
         debugRestoredLastTick = restored;
 
-        if (restored > 0f)
-        {
-            needs.RestoreNeed(chosenNeed, restored);
+        if (restored <= 0f)
+            return;
 
-            areaKnowledge.ObserveValue(
-                chosenSource.transform.position,
-                GetAreaKnowledgeTypeForNeed(chosenNeed),
-                15f * Time.deltaTime,
-                0f,
-                true
-            );
-        }
+        needs.RestoreNeed(chosenNeed, restored);
+
+        areaKnowledge.ObserveValue(
+            chosenSource.transform.position,
+            GetAreaKnowledgeTypeForNeed(chosenNeed),
+            15f * Time.deltaTime,
+            0f,
+            true
+        );
 
         if (needs.GetNeed(chosenNeed) >= 95f)
         {
@@ -153,12 +148,11 @@ public class UseNeedSourceAction : NpcAction
                     continue;
 
                 Vector3 point = source.GetInteractionPoint(transform.position);
+
                 float distance = Vector3.Distance(transform.position, point);
                 float urgency = 100f - needs.GetNeed(needType);
 
-                float score =
-                    urgency -
-                    distance * distancePenaltyMultiplier;
+                float score = urgency - distance * distancePenaltyMultiplier;
 
                 if (needs.GetNeed(needType) <= emergencyThreshold)
                     score += emergencyBonus;

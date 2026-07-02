@@ -7,5 +7,7 @@ public enum NpcActionType
     Sleep,
     Hunt,
     Fish,
-    Socialise
+    Socialise,
+    ChopWood,
+    Build
 }
