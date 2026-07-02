@@ -4,6 +4,7 @@ using UnityEngine;
 [RequireComponent(typeof(NpcMemory))]
 [RequireComponent(typeof(NpcMovement))]
 [RequireComponent(typeof(NpcAreaKnowledge))]
+[RequireComponent(typeof(NpcDebugState))]
 public class NpcBrain : MonoBehaviour
 {
     [Header("Brain")]
@@ -20,13 +21,20 @@ public class NpcBrain : MonoBehaviour
     private NpcAction[] actions;
     private NpcAction currentAction;
 
+    private NpcNeeds needs;
+    private NpcDebugState debugState;
+
     private void Awake()
     {
         actions = GetComponents<NpcAction>();
+        needs = GetComponent<NpcNeeds>();
+        debugState = GetComponent<NpcDebugState>();
     }
 
     private void Update()
     {
+        debugState.UpdateNeeds(needs);
+
         decisionTimer -= Time.deltaTime;
 
         if (decisionTimer <= 0f)
@@ -58,10 +66,17 @@ public class NpcBrain : MonoBehaviour
         }
 
         if (bestAction == null)
+        {
+            currentActionType = NpcActionType.Idle;
+            debugState.SetAction(NpcActionType.Idle, 0f);
             return;
+        }
 
         if (currentAction == bestAction)
+        {
+            debugState.SetAction(currentActionType, bestScore);
             return;
+        }
 
         currentAction?.End();
 
@@ -70,7 +85,9 @@ public class NpcBrain : MonoBehaviour
 
         currentAction.Begin();
 
+        debugState.SetAction(currentActionType, bestScore);
+
         if (debugLogs)
-            Debug.Log($"{name} chose action: {currentActionType} | Score: {bestScore}");
+            Debug.Log($"{name} chose action: {currentActionType} | Score: {bestScore:0.0}");
     }
 }

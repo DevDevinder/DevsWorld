@@ -5,77 +5,81 @@ using UnityEngine.AI;
 [RequireComponent(typeof(NpcMovement))]
 [RequireComponent(typeof(NpcAreaKnowledge))]
 [RequireComponent(typeof(NpcMemory))]
+[RequireComponent(typeof(NeedPriorityEvaluator))]
+[RequireComponent(typeof(NpcDebugState))]
 public class SearchForNeedAction : NpcAction
 {
     public override NpcActionType ActionType => NpcActionType.SearchForNeed;
-
-    [Header("Need Thresholds")]
-    public float hungerSearchThreshold = 65f;
-    public float thirstSearchThreshold = 65f;
-    public float emergencyThreshold = 25f;
 
     [Header("Search Movement")]
     public float searchDistance = 45f;
     public float minimumTargetDistance = 12f;
     public int candidatePoints = 40;
 
-    [Header("Last Known Water")]
-    public float knownWaterDirectScoreBonus = 140f;
-    public float knownWaterEmergencyBonus = 180f;
-    public float knownWaterRouteChance = 1f;
-
-    [Header("Known Area Use")]
-    public float minimumKnownAreaValue = 12f;
-    public float knownAreaTargetRadiusMultiplier = 0.45f;
+    [Header("Known Target Travel")]
+    public float knownTargetRouteChance = 1f;
+    public float directTargetDistance = 120f;
 
     [Header("Scoring")]
     public float unexploredWeight = 1.8f;
     public float relevantValueWeight = 1.4f;
+    public float attentionWeight = 0.25f;
     public float distancePenaltyMultiplier = 0.2f;
     public float failurePenaltyMultiplier = 1.2f;
+    public float routeProgressWeight = 70f;
 
     [Header("Anti-Stuck")]
     public float minimumUsefulMoveDistance = 8f;
     public float failedFallbackRadius = 16f;
 
-    private NpcNeeds needs;
+    [Header("Debug")]
+    public bool debugLogs;
+
     private NpcMovement movement;
     private NpcAreaKnowledge areaKnowledge;
-    private NpcMemory memory;
+    private NeedPriorityEvaluator priorityEvaluator;
+    private NpcDebugState debugState;
 
-    private AreaKnowledgeType currentSearchType;
+    private SearchGoal currentGoal;
+    private NeedGoalType previousGoalType = NeedGoalType.None;
+
     private Vector3 currentTarget;
     private bool hasTarget;
 
     private void Awake()
     {
-        needs = GetComponent<NpcNeeds>();
         movement = GetComponent<NpcMovement>();
         areaKnowledge = GetComponent<NpcAreaKnowledge>();
-        memory = GetComponent<NpcMemory>();
+        priorityEvaluator = GetComponent<NeedPriorityEvaluator>();
+        debugState = GetComponent<NpcDebugState>();
     }
 
     public override bool CanRun()
     {
-        return ShouldSearchForFood() || ShouldSearchForWater();
+        SearchGoal goal = priorityEvaluator.GetBestSearchGoal();
+        debugState.SetSearchGoal(goal);
+        return goal != null;
     }
 
     public override float GetScore()
     {
-        if (!CanRun())
+        SearchGoal bestGoal = priorityEvaluator.GetBestSearchGoal();
+        debugState.SetSearchGoal(bestGoal);
+
+        if (bestGoal == null)
             return 0f;
 
-        float foodScore = GetFoodSearchScore();
-        float waterScore = GetWaterSearchScore();
-
-        if (waterScore > foodScore)
+        if (currentGoal == null || bestGoal.goalType != currentGoal.goalType)
         {
-            currentSearchType = AreaKnowledgeType.Water;
-            return waterScore;
+            currentGoal = bestGoal;
+            hasTarget = false;
+        }
+        else
+        {
+            currentGoal = bestGoal;
         }
 
-        currentSearchType = AreaKnowledgeType.Food;
-        return foodScore;
+        return currentGoal.priority;
     }
 
     public override void Begin()
@@ -85,86 +89,79 @@ public class SearchForNeedAction : NpcAction
 
     public override void Tick()
     {
+        SearchGoal latestGoal = priorityEvaluator.GetBestSearchGoal();
+        debugState.SetSearchGoal(latestGoal);
+
+        if (latestGoal == null)
+        {
+            debugState.ClearTarget();
+            return;
+        }
+
+        bool goalChanged = latestGoal.goalType != previousGoalType;
+
+        currentGoal = latestGoal;
+
+        if (goalChanged)
+        {
+            hasTarget = false;
+            previousGoalType = currentGoal.goalType;
+
+            if (debugLogs)
+                Debug.Log($"{name} switched search goal to {currentGoal.goalType}");
+        }
+
         if (!hasTarget || movement.HasReachedDestination)
             PickNewSearchTarget();
 
         movement.MoveTo(currentTarget);
+        debugState.SetTarget(currentTarget, transform.position);
     }
 
     public override void End()
     {
         hasTarget = false;
-    }
+        currentGoal = null;
+        previousGoalType = NeedGoalType.None;
 
-    private bool ShouldSearchForFood()
-    {
-        return needs.hunger < hungerSearchThreshold;
-    }
-
-    private bool ShouldSearchForWater()
-    {
-        return needs.thirst < thirstSearchThreshold;
-    }
-
-    private float GetFoodSearchScore()
-    {
-        if (!ShouldSearchForFood())
-            return 0f;
-
-        float urgency = 100f - needs.hunger;
-
-        if (needs.hunger <= emergencyThreshold)
-            urgency += 80f;
-
-        return urgency + 20f;
-    }
-
-    private float GetWaterSearchScore()
-    {
-        if (!ShouldSearchForWater())
-            return 0f;
-
-        float urgency = 100f - needs.thirst;
-
-        if (memory.Knows(MemoryType.Lake))
-            urgency += knownWaterDirectScoreBonus;
-
-        if (needs.thirst <= emergencyThreshold)
-            urgency += knownWaterEmergencyBonus;
-
-        return urgency + 20f;
+        debugState.ClearTarget();
     }
 
     private void PickNewSearchTarget()
     {
+        if (currentGoal == null)
+            return;
+
         currentTarget = ChooseSearchTarget();
         hasTarget = true;
 
         areaKnowledge.MarkAreaInvestigated(currentTarget);
+        debugState.SetTarget(currentTarget, transform.position);
+
+        if (debugLogs)
+            Debug.Log($"{name} searching for {currentGoal.goalType} at {currentTarget}");
     }
 
     private Vector3 ChooseSearchTarget()
     {
-        if (currentSearchType == AreaKnowledgeType.Water && Random.value <= knownWaterRouteChance)
+        if (currentGoal.hasKnownTarget && Random.value <= knownTargetRouteChance)
         {
-            Vector3? waterTarget = GetTargetTowardKnownWater();
+            Vector3? routeTarget = GetTargetTowardKnownGoal();
 
-            if (waterTarget.HasValue)
-                return waterTarget.Value;
+            if (routeTarget.HasValue)
+                return routeTarget.Value;
         }
 
-        float needUrgency = GetCurrentNeedUrgency();
-
         AreaKnowledge knownArea = areaKnowledge.GetBestAreaForNeed(
-            currentSearchType,
-            needUrgency
+            currentGoal.areaType,
+            currentGoal.urgency
         );
 
-        if (knownArea != null && knownArea.GetValue(currentSearchType) >= minimumKnownAreaValue)
+        if (knownArea != null && knownArea.GetValue(currentGoal.areaType) > 10f)
         {
             Vector3 knownAreaPoint = GetRandomPointNear(
                 knownArea.worldCenter,
-                WorldAreaGrid.Instance.regionSize * knownAreaTargetRadiusMultiplier
+                WorldAreaGrid.Instance.regionSize * 0.45f
             );
 
             if (Vector3.Distance(transform.position, knownAreaPoint) >= minimumUsefulMoveDistance)
@@ -174,26 +171,25 @@ public class SearchForNeedAction : NpcAction
         return FindBestUnknownSearchPoint();
     }
 
-    private Vector3? GetTargetTowardKnownWater()
+    private Vector3? GetTargetTowardKnownGoal()
     {
-        Memory lakeMemory = memory.GetBestMemoryForNeed(
-            MemoryType.Lake,
-            100f - needs.thirst
-        );
+        Vector3 knownTarget = currentGoal.targetPosition;
 
-        if (lakeMemory == null)
+        float distanceToTarget = Vector3.Distance(transform.position, knownTarget);
+
+        if (distanceToTarget <= directTargetDistance)
+        {
+            if (TryGetReachablePoint(knownTarget, 10f, out Vector3 directPoint))
+                return directPoint;
+        }
+
+        Vector3 directionToTarget = knownTarget - transform.position;
+        directionToTarget.y = 0f;
+
+        if (directionToTarget.sqrMagnitude < 0.01f)
             return null;
 
-        if (TryGetReachablePoint(lakeMemory.position, 10f, out Vector3 directLakePoint))
-            return directLakePoint;
-
-        Vector3 directionToLake = lakeMemory.position - transform.position;
-        directionToLake.y = 0f;
-
-        if (directionToLake.sqrMagnitude < 0.01f)
-            return null;
-
-        directionToLake.Normalize();
+        directionToTarget.Normalize();
 
         Vector3 bestPoint = transform.position;
         float bestScore = float.MinValue;
@@ -204,7 +200,7 @@ public class SearchForNeedAction : NpcAction
                 0f,
                 Random.Range(-55f, 55f),
                 0f
-            ) * directionToLake;
+            ) * directionToTarget;
 
             float distance = Random.Range(minimumTargetDistance, searchDistance);
             Vector3 samplePoint = transform.position + direction * distance;
@@ -223,21 +219,21 @@ public class SearchForNeedAction : NpcAction
                 continue;
 
             float routeProgressScore =
-                Vector3.Dot(directionToLake, (point - transform.position).normalized) * 60f;
+                Vector3.Dot(directionToTarget, (point - transform.position).normalized) * routeProgressWeight;
 
             float unexploredScore =
                 (100f - area.exploration) * unexploredWeight;
 
-            float waterValueScore =
-                area.waterValue * relevantValueWeight;
+            float relevantValueScore =
+                area.GetValue(currentGoal.areaType) * relevantValueWeight;
 
             float failurePenalty =
-                area.waterSearchFailure * failurePenaltyMultiplier;
+                area.GetFailure(currentGoal.areaType) * failurePenaltyMultiplier;
 
             float score =
                 routeProgressScore +
                 unexploredScore +
-                waterValueScore -
+                relevantValueScore -
                 failurePenalty;
 
             if (score > bestScore)
@@ -316,16 +312,16 @@ public class SearchForNeedAction : NpcAction
             (100f - area.exploration) * unexploredWeight;
 
         float relevantValueScore =
-            area.GetValue(currentSearchType) * relevantValueWeight;
+            area.GetValue(currentGoal.areaType) * relevantValueWeight;
 
         float attentionScore =
-            area.GetAttentionTotal() * 0.25f;
+            area.GetAttentionTotal() * attentionWeight;
 
         float distancePenalty =
             Vector3.Distance(transform.position, point) * distancePenaltyMultiplier;
 
         float failurePenalty =
-            area.GetFailure(currentSearchType) * failurePenaltyMultiplier;
+            area.GetFailure(currentGoal.areaType) * failurePenaltyMultiplier;
 
         return
             unexploredScore +
@@ -334,16 +330,6 @@ public class SearchForNeedAction : NpcAction
             chosenDistance * 0.3f -
             distancePenalty -
             failurePenalty;
-    }
-
-    private float GetCurrentNeedUrgency()
-    {
-        return currentSearchType switch
-        {
-            AreaKnowledgeType.Food => 100f - needs.hunger,
-            AreaKnowledgeType.Water => 100f - needs.thirst,
-            _ => 0f
-        };
     }
 
     private Vector3 GetOutwardSearchDirection()

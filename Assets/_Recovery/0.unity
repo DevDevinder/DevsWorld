@@ -24454,7 +24454,6 @@ GameObject:
   - component: {fileID: 95195274385983344}
   - component: {fileID: 95195274385983345}
   - component: {fileID: 95195274385983346}
-  - component: {fileID: 95195274385983347}
   m_Layer: 0
   m_Name: Rrefab
   m_TagString: Untagged
@@ -24706,7 +24705,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e833f6a73060ae04b9c6dd8e527f9c1b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::NpcVision
-  visionDistance: 189.7
+  visionDistance: 93.4
   visionAngle: 110
   detectableLayers:
     serializedVersion: 2
@@ -24772,41 +24771,6 @@ MonoBehaviour:
   distancePenaltyMultiplier: 0.18
   nearbyOpportunityDistance: 18
   opportunityBonus: 65
---- !u!114 &95195274385983347
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1244282621300498}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 42104842989115542a407e5bd8c15978, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::NpcDebugState
-  currentAction: 0
-  currentSearchGoal: 0
-  currentActionScore: 0
-  currentDecision: 
-  needsFood: 0
-  needsWater: 0
-  needsSleep: 0
-  needsWarmth: 0
-  needsSafety: 0
-  needsSocial: 0
-  hunger: 0
-  thirst: 0
-  energy: 0
-  warmth: 0
-  safety: 0
-  social: 0
-  hasTarget: 0
-  currentTargetPosition: {x: 0, y: 0, z: 0}
-  distanceToTarget: 0
-  searchReason: 
-  searchPriority: 0
-  searchUrgency: 0
-  searchHarmRisk: 0
 --- !u!137 &1612699178067438592
 SkinnedMeshRenderer:
   m_ObjectHideFlags: 0
