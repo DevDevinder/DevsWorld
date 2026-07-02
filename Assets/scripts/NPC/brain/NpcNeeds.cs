@@ -45,6 +45,20 @@ public class NpcNeeds : MonoBehaviour
         return Mathf.Clamp(value - amountPerSecond * Time.deltaTime, 0f, 100f);
     }
 
+    public float GetNeed(NpcNeedType needType)
+    {
+        return needType switch
+        {
+            NpcNeedType.Hunger => hunger,
+            NpcNeedType.Thirst => thirst,
+            NpcNeedType.Energy => energy,
+            NpcNeedType.Warmth => warmth,
+            NpcNeedType.Safety => safety,
+            NpcNeedType.Social => social,
+            _ => 100f
+        };
+    }
+
     public void RestoreNeed(NpcNeedType needType, float amount)
     {
         switch (needType)
@@ -52,21 +66,31 @@ public class NpcNeeds : MonoBehaviour
             case NpcNeedType.Hunger:
                 hunger = Mathf.Clamp(hunger + amount, 0f, 100f);
                 break;
+
             case NpcNeedType.Thirst:
                 thirst = Mathf.Clamp(thirst + amount, 0f, 100f);
                 break;
+
             case NpcNeedType.Energy:
                 energy = Mathf.Clamp(energy + amount, 0f, 100f);
                 break;
+
             case NpcNeedType.Warmth:
                 warmth = Mathf.Clamp(warmth + amount, 0f, 100f);
                 break;
+
             case NpcNeedType.Safety:
                 safety = Mathf.Clamp(safety + amount, 0f, 100f);
                 break;
+
             case NpcNeedType.Social:
                 social = Mathf.Clamp(social + amount, 0f, 100f);
                 break;
         }
+    }
+
+    public void DamageNeed(NpcNeedType needType, float amount)
+    {
+        RestoreNeed(needType, -amount);
     }
 }
